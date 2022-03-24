@@ -1,0 +1,13 @@
+,worker_id,response_class,company_1,company_2
+0,a,0,stub_company_1,stub_company_2
+1,b,1,stub_company_1,stub_company_2
+2,ab,0,stub_company_1,stub_company_2
+3,c,2,stub_company_1,stub_company_2
+4,a,2,stub_company_1,stub_company_2
+5,a,0,stub_company_1,stub_company_2
+6,c,0,stub_company_1,stub_company_2
+7,b,0,stub_company_1,stub_company_2
+8,b,1,stub_company_1,stub_company_2
+9,b,1,stub_company_1,stub_company_2
+10,ab,2,stub_company_1,stub_company_2
+11,ab,1,stub_company_1,stub_company_2
