@@ -13,7 +13,7 @@ Base = declarative_base()
 # create tables
 class HeadlineInfo(Base):
     __tablename__ = 'headline_info'
-    id = Column('id', Integer, primary_key = True, autoincrement = True)
+    headline_id = Column('headline_id', Integer, primary_key = True, autoincrement = True)
     headline = Column('headline', String)
     article_id = Column('article_id', String)
     num_times_displayed = Column('num_times_displayed', Integer)
@@ -21,7 +21,7 @@ class HeadlineInfo(Base):
 
 class AssessmentHeadlines(Base):
     __tablename__ = 'assessment_headlines'
-    id = Column('id', Integer, primary_key = True, autoincrement = True)
+    assessment_headline_id = Column('assessment_headline_id', Integer, primary_key = True, autoincrement = True)
     consensus_class = Column('consensus_class', Integer)
     company_1 = Column('company_1', String)
     company_2 = Column('company_2', String)
@@ -29,14 +29,15 @@ class AssessmentHeadlines(Base):
 
 class Workers(Base):
     __tablename__ = 'workers'
-    id = Column('id', Integer, primary_key = True, autoincrement = True)
+    worker_id = Column('worker_id', Integer, primary_key = True, autoincrement = True)
     prolific_id = Column('prolific_id', String)
     trust_score = Column('trust_score', Float)
 
 class Responses(Base):
     __tablename__ = 'responses'
-    id = Column('id', Integer, primary_key = True, autoincrement = True)
+    response_id = Column('response_id', Integer, primary_key = True, autoincrement = True)
     worker_id = Column('worker_id', Integer)
+    headline_id = Column('headline_id', Integer)
     response_class = Column('response_class', Integer)
     company_1 = Column('company_1', String)
     company_2 = Column('company_2', String)
