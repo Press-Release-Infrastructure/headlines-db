@@ -6,8 +6,6 @@ engine = create_engine("postgres://localhost/headlines")
 if not database_exists(engine.url):
     create_database(engine.url)
 
-print(database_exists(engine.url))
-
 Base = declarative_base()
 
 # create tables
@@ -22,6 +20,7 @@ class HeadlineInfo(Base):
 class AssessmentHeadlines(Base):
     __tablename__ = 'assessment_headlines'
     assessment_headline_id = Column('assessment_headline_id', Integer, primary_key = True, autoincrement = True)
+    headline_id = Column('headline_id', Integer)
     consensus_class = Column('consensus_class', Integer)
     company_1 = Column('company_1', String)
     company_2 = Column('company_2', String)
