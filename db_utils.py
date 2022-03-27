@@ -62,6 +62,12 @@ def add_worker(prolific_id):
     ))
     session.commit()
 
+def update_worker_score():
+    pass 
+
+def update_assessment_headline():
+    pass 
+
 def determine_consensus(response_results):
     n = len(response_results)
     num_agree_needed = math.ceil(assessment_headline_consensus * n)
@@ -149,14 +155,12 @@ def add_responses(response_data):
             curr_weighted_confidence = int(confidence_score * prev_num_times_displayed)
             next_confidence_score = (curr_weighted_confidence + 1) / num_times_displayed
 
-            assessment_headline_query.update({'confidence_score': next_confidence_score})
+            # if score dips below assessment threshold, remove from table
+            if next_confidence_score < assessment_headline_consensus:
+                assessment_headline_query.delete()
+            else:
+                assessment_headline_query.update({'confidence_score': next_confidence_score})
             session.commit()
-
-def update_worker_score():
-    pass 
-
-def update_assessment_headline():
-    pass 
 
 def clear_table(table):
     q = table.delete()
