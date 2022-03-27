@@ -182,6 +182,7 @@ def add_responses(response_data):
             response_query = session.query(Responses).filter(Responses.headline_id == curr_headline_id)
             response_results = list(session.execute(response_query))
             is_consensus, consensus_info = determine_consensus(response_results)
+            assessment_update = 1
             if is_consensus:
                 # check if consensus is equal to current assessment headline entry; if not, update
                 new_consensus_class, new_company_1, new_company_2, new_confidence_score = consensus_info 
@@ -192,6 +193,8 @@ def add_responses(response_data):
                         'company_2': company_2,
                         'confidence_score': new_confidence_score
                     })
+                else:
+                    assessment_update = 0
             else:
                 assessment_headline_query.delete()
             
@@ -200,7 +203,7 @@ def add_responses(response_data):
             num_times_displayed = session.execute(headline_query).first().headline_info_num_times_displayed
             prev_num_times_displayed = num_times_displayed - 1
             curr_weighted_confidence = int(confidence_score * prev_num_times_displayed)
-            next_confidence_score = (curr_weighted_confidence + 1) / num_times_displayed
+            next_confidence_score = (curr_weighted_confidence + assessment_update) / num_times_displayed
 
             # if score dips below assessment threshold, remove from table
             if next_confidence_score < assessment_headline_consensus:
