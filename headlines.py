@@ -30,6 +30,8 @@ class Workers(Base):
     __tablename__ = 'workers'
     worker_id = Column('worker_id', Integer, primary_key = True, autoincrement = True)
     prolific_id = Column('prolific_id', String)
+    num_headlines_completed = Column('num_headlines_completed', Integer)
+    num_assessment_headlines_completed = Column('num_assessment_headlines_completed', Integer)
     trust_score = Column('trust_score', Float)
 
 class Responses(Base):

@@ -55,9 +55,11 @@ def add_assessment_headline(consensus_class, headline_id, company_1, company_2, 
     )) 
     session.commit()
 
-def add_worker(prolific_id):
+def add_worker(prolific_id, num_headlines_completed, num_assessment_headlines_completed):
     session.add(Workers(
         prolific_id = prolific_id,
+        num_headlines_completed = num_headlines_completed,
+        num_assessment_headlines_completed = num_assessment_headlines_completed,
         trust_score = 1
     ))
     session.commit()
@@ -128,7 +130,11 @@ def add_responses(response_data):
         worker_row = session.execute(worker_query).first()
         if worker_row == None:
             # add worker to workers table
-            add_worker(curr_prolific_id)
+            add_worker(curr_prolific_id, 0, 0)
+        worker_row = session.execute(worker_query).first()
+        num_headlines_completed = worker_row.workers_num_headlines_completed
+        worker_query.update({'num_headlines_completed': num_headlines_completed + 1})
+        session.commit()
 
         curr_worker_id = session.execute(worker_query).first().workers_worker_id
 
@@ -148,6 +154,42 @@ def add_responses(response_data):
                 consensus_class, company_1, company_2, confidence_score = consensus_info
                 add_assessment_headline(consensus_class, curr_headline_id, company_1, company_2, confidence_score)
         else:
+            num_assessment_headlines_completed = worker_row.workers_num_assessment_headlines_completed
+
+            # update worker trust score based on assessment headline performance (& confidence)
+            correct_consensus_class = assessment_headline_row.assessment_headlines_consensus_class
+            correct_company_1 = assessment_headline_row.assessment_headlines_company_1
+            correct_company_2 = assessment_headline_row.assessment_headlines_company_2
+
+            curr_worker_trust_score = worker_row.workers_trust_score
+            num_assessment_correct = curr_worker_trust_score * num_assessment_headlines_completed
+
+            if curr_response_class == correct_consensus_class and curr_company_1 == correct_company_1 and curr_company_2 == correct_company_2:
+                next_worker_trust_score = (num_assessment_correct + 1) / (num_assessment_headlines_completed + 1)
+            else:
+                next_worker_trust_score = num_assessment_correct / (num_assessment_headlines_completed + 1)
+
+            worker_query.update({'trust_score': next_worker_trust_score})
+            worker_query.update({'num_assessment_headlines_completed': num_assessment_headlines_completed + 1})
+
+            assessment_headline_row = session.execute(assessment_headline_query).first()
+
+            response_query = session.query(Responses).filter(Responses.headline_id == curr_headline_id)
+            response_results = list(session.execute(response_query))
+            is_consensus, consensus_info = determine_consensus(response_results)
+            if is_consensus:
+                # check if consensus is equal to current assessment headline entry; if not, update
+                new_consensus_class, new_company_1, new_company_2, new_confidence_score = consensus_info 
+                if not (new_consensus_class == correct_consensus_class and new_company_1 == correct_company_1 and new_company_2 == correct_company_2):
+                    assessment_query.update({
+                        'consensus_class': new_consensus_class,
+                        'company_1': company_1,
+                        'company_2': company_2,
+                        'confidence_score': new_confidence_score
+                    })
+            else:
+                assessment_headline_query.delete()
+            
             # update assessment headline confidence score
             confidence_score = assessment_headline_row.assessment_headlines_confidence_score
             num_times_displayed = session.execute(headline_query).first().headline_info_num_times_displayed
