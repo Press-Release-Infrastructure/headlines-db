@@ -103,6 +103,40 @@ def determine_consensus(response_results):
         return True, [most_freq_class, most_freq_company_1, most_freq_company_2, num_agreed / num_agree_needed]
     return False, None
 
+def update_headline(curr_headline, curr_article_id, curr_priority_score):
+    # find the headline id corresponding to the current headline
+    headline_query = session.query(HeadlineInfo).filter(HeadlineInfo.headline == curr_headline)
+    headline_row = session.execute(headline_query).first()
+    if headline_row == None:
+        # add headline to headlines table
+        add_headline(curr_headline, curr_article_id, curr_priority_score)
+    else:
+        num_times_displayed = headline_row.headline_info_num_times_displayed
+        headline_query.update({'num_times_displayed': num_times_displayed + 1})
+        session.commit()
+
+def get_attribute(table, condition, column):
+    query = session.query(table).filter(condition)
+    result = session.execute(query).first()
+    return result[column]
+
+def get_rows(table, condition, first = False):
+    query = session.query(table).filter(condition)
+    result = session.execute(query)
+    if first:
+        return result.first()
+    return result
+
+def delete_rows(table, condition):
+    query = session.query(table).filter(condition)
+    query.delete()
+
+def update_attribute(table, condition, column, new_value):
+    query = session.query(table).filter(condition)
+    query.update({
+        column: new_value
+    })
+
 def add_responses(response_data):
     for i, response in  response_data.iterrows():
         curr_prolific_id = response['prolific_id']
@@ -113,46 +147,32 @@ def add_responses(response_data):
         curr_article_id = response['article_id']
         curr_priority_score = response['priority_score']
 
-        # find the headline id corresponding to the current headline
-        headline_query = session.query(HeadlineInfo).filter(HeadlineInfo.headline == curr_headline)
-        headline_row = session.execute(headline_query).first()
-        if headline_row == None:
-            # add headline to headlines table
-            add_headline(curr_headline, curr_article_id, curr_priority_score)
-        else:
-            num_times_displayed = headline_row.headline_info_num_times_displayed
-            headline_query.update({'num_times_displayed': num_times_displayed + 1})
-            session.commit()
+        update_headline(curr_headline, curr_article_id, curr_priority_score)
 
-        curr_headline_id = session.execute(headline_query).first().headline_info_headline_id
+        curr_headline_id = get_attribute(HeadlineInfo, HeadlineInfo.headline == curr_headline, 'headline_info_headline_id')
 
         # find worker by prolific id
-        worker_query = session.query(Workers).filter(Workers.prolific_id == curr_prolific_id)
-        worker_row = session.execute(worker_query).first()
+        worker_row = get_rows(Workers, Workers.prolific_id == curr_prolific_id, first = True)
         if worker_row == None:
             # add worker to workers table
             add_worker(curr_prolific_id, 0, 0)
-        worker_row = session.execute(worker_query).first()
-        num_headlines_completed = worker_row.workers_num_headlines_completed
-        worker_query.update({'num_headlines_completed': num_headlines_completed + 1})
+        num_headlines_completed = get_attribute(Workers, Workers.prolific_id == curr_prolific_id, 'workers_num_headlines_completed')
+        update_attribute(Workers, Workers.prolific_id == curr_prolific_id, 'num_headlines_completed', num_headlines_completed + 1)
         session.commit()
 
-        curr_worker_id = session.execute(worker_query).first().workers_worker_id
+        curr_worker_id = get_attribute(Workers, Workers.prolific_id == curr_prolific_id, 'workers_worker_id')
 
         # record response 
         add_response(curr_worker_id, curr_headline_id, curr_response_class, curr_company_1, curr_company_2)
 
         # check if headline is already an assessment headline
-        assessment_headline_query = session.query(AssessmentHeadlines).filter(AssessmentHeadlines.headline_id == curr_headline_id)
-        assessment_headline_row = session.execute(assessment_headline_query).first()
+        assessment_headline_row = get_rows(AssessmentHeadlines, AssessmentHeadlines.headline_id == curr_headline_id, first = True)
         
-        headline_row = session.execute(headline_query).first()
-        num_times_displayed = headline_row.headline_info_num_times_displayed
+        num_times_displayed = get_attribute(HeadlineInfo, HeadlineInfo.headline_id == curr_headline_id, 'headline_info_num_times_displayed')
         
         if assessment_headline_row == None:
             # determine if there's enough of a consensus for the headline => assessment headline
-            response_query = session.query(Responses).filter(Responses.headline_id == curr_headline_id)
-            response_results = list(session.execute(response_query))
+            response_results = list(get_rows(Responses, Responses.headline_id == curr_headline_id, first = False))
             is_consensus, consensus_info = determine_consensus(response_results)
             if is_consensus and num_times_displayed >= assessment_headline_threshold_num:
                 # add to assessment headlines table
@@ -174,13 +194,14 @@ def add_responses(response_data):
             else:
                 next_worker_trust_score = num_assessment_correct / (num_assessment_headlines_completed + 1)
 
-            worker_query.update({'trust_score': next_worker_trust_score})
-            worker_query.update({'num_assessment_headlines_completed': num_assessment_headlines_completed + 1})
+            update_attribute(Workers, Workers.prolific_id == curr_prolific_id, 'trust_score', next_worker_trust_score)
+            update_attribute(Workers, Workers.prolific_id == curr_prolific_id, 'num_assessment_headlines_completed', num_assessment_headlines_completed + 1)
 
-            assessment_headline_row = session.execute(assessment_headline_query).first()
+            assessment_headline_row = get_rows(AssessmentHeadlines, AssessmentHeadlines.headline_id == curr_headline_id, first = True)
 
-            response_query = session.query(Responses).filter(Responses.headline_id == curr_headline_id)
-            response_results = list(session.execute(response_query))
+            # response_query = session.query(Responses).filter(Responses.headline_id == curr_headline_id)
+            # response_results = list(session.execute(response_query))
+            response_results = list(get_rows(Responses, Responses.headline_id == curr_headline_id, first = False))
             is_consensus, consensus_info = determine_consensus(response_results)
             assessment_update = 1
             if is_consensus:
@@ -196,20 +217,20 @@ def add_responses(response_data):
                 else:
                     assessment_update = 0
             else:
-                assessment_headline_query.delete()
+                delete_rows(AssessmentHeadlines, AssessmentHeadlines.headline_id == curr_headline_id)
             
             # update assessment headline confidence score
             confidence_score = assessment_headline_row.assessment_headlines_confidence_score
-            num_times_displayed = session.execute(headline_query).first().headline_info_num_times_displayed
+            num_times_displayed = get_attribute(HeadlineInfo, HeadlineInfo.headline_id == curr_headline_id, 'headline_info_num_times_displayed')
             prev_num_times_displayed = num_times_displayed - 1
             curr_weighted_confidence = int(confidence_score * prev_num_times_displayed)
             next_confidence_score = (curr_weighted_confidence + assessment_update) / num_times_displayed
 
             # if score dips below assessment threshold, remove from table
             if next_confidence_score < assessment_headline_consensus:
-                assessment_headline_query.delete()
+                delete_rows(AssessmentHeadlines, AssessmentHeadlines.headline_id == curr_headline_id)
             else:
-                assessment_headline_query.update({'confidence_score': next_confidence_score})
+                update_attribute(AssessmentHeadlines, AssessmentHeadlines.headline_id == curr_headline_id, 'confidence_score', next_confidence_score)
             session.commit()
 
 def clear_table(table):
