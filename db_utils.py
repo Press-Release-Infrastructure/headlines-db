@@ -8,6 +8,7 @@ import traceback
 import math
 
 assessment_headline_consensus = 0.8
+assessment_headline_threshold_num = 2
 
 engine = create_engine("postgres://localhost/headlines")
 
@@ -144,12 +145,16 @@ def add_responses(response_data):
         # check if headline is already an assessment headline
         assessment_headline_query = session.query(AssessmentHeadlines).filter(AssessmentHeadlines.headline_id == curr_headline_id)
         assessment_headline_row = session.execute(assessment_headline_query).first()
+        
+        headline_row = session.execute(headline_query).first()
+        num_times_displayed = headline_row.headline_info_num_times_displayed
+        
         if assessment_headline_row == None:
             # determine if there's enough of a consensus for the headline => assessment headline
             response_query = session.query(Responses).filter(Responses.headline_id == curr_headline_id)
             response_results = list(session.execute(response_query))
             is_consensus, consensus_info = determine_consensus(response_results)
-            if is_consensus:
+            if is_consensus and num_times_displayed >= assessment_headline_threshold_num:
                 # add to assessment headlines table
                 consensus_class, company_1, company_2, confidence_score = consensus_info
                 add_assessment_headline(consensus_class, curr_headline_id, company_1, company_2, confidence_score)
@@ -212,7 +217,7 @@ def clear_table(table):
 def view_table(table):
     rows = session.query(table).all()
     for r in rows:
-        print(' '.join([str(i) for i in r]))
+        print('\t'.join([str(i) for i in r]))
 
 def cleanup():
     # clear all tables
@@ -235,13 +240,3 @@ print()
 print('assessment_headlines')
 view_table(assessment_headlines)
 cleanup()
-
-# try:
-#     # read responses from initial survey
-#     initial_survey_responses = pd.read_csv('./test_data/initial_survey.csv').drop(columns = ['Unnamed: 0'])
-#     add_responses(initial_survey_responses)
-#     view_table(headline_info)
-#     cleanup()
-# except Exception as e:
-#     print(traceback.format_exc())
-#     cleanup()
