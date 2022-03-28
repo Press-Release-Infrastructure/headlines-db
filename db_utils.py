@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import sys
 import pandas as pd
 from headlines import Responses, HeadlineInfo, Workers, AssessmentHeadlines
+from sqlalchemy.sql.expression import func
 import traceback
 import math
 
@@ -24,8 +25,52 @@ responses = meta.tables['responses']
 Session = sessionmaker(bind = engine)
 session = Session()
 
-def collect_n_headlines(n, criteria = ''):
-    pass 
+def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_out, criteria = 'high_priority'):
+    # select n headlines with the highest priority values from the headlines table
+    headline_query = session.query(HeadlineInfo).order_by(HeadlineInfo.priority_score.desc()) 
+    headline_result = session.execute(headline_query)
+    count = 0
+    headlines_used = []
+    for h in headline_result:
+        headlines_used.append(h.headline_info_headline)
+        count += 1
+        if count >= num_headlines:
+            break
+    
+    assessment_headline_query = session.query(AssessmentHeadlines).order_by(func.random())
+    assessment_headline_result = session.execute(assessment_headline_query)
+    count = 0
+    assessment_headlines_used = []
+    assessment_headlines_cc = []
+    assessment_headlines_c1 = []
+    assessment_headlines_c2 = []
+    for a in assessment_headline_result:
+        curr_assessment_headline = get_attribute(HeadlineInfo, HeadlineInfo.headline_id == a.assessment_headlines_headline_id, 'headline_info_headline')
+        curr_assessment_consensus_class = a.assessment_headlines_consensus_class 
+        curr_assessment_company_1 = a.assessment_headlines_company_1
+        curr_assessment_company_2 = a.assessment_headlines_company_2
+        
+        assessment_headlines_used.append(curr_assessment_headline)
+        assessment_headlines_cc.append(curr_assessment_consensus_class)
+        assessment_headlines_c1.append(curr_assessment_company_1)
+        assessment_headlines_c2.append(curr_assessment_company_2)
+        count += 1
+        if count >= num_headlines:
+            break 
+
+    headlines_df = pd.DataFrame({
+        'Headline': headlines_used
+    })
+
+    assessment_headlines_df = pd.DataFrame({
+        'Title': assessment_headlines_used,
+        'Acq_Status': assessment_headlines_cc,
+        'Company 1': assessment_headlines_c1,
+        'Company 2': assessment_headlines_c2
+    })
+    
+    headlines_df.to_csv(headlines_out)
+    assessment_headlines_df.to_csv(assessment_out)
 
 def add_response(worker_id, headline_id, response_class, company_1, company_2):
     session.add(Responses(
@@ -261,5 +306,7 @@ view_table(HeadlineInfo)
 view_table(Workers)
 view_table(Responses)
 view_table(AssessmentHeadlines)
+
+collect_headlines(2, 2, './outputs/headlines.csv', './outputs/assessment.csv', criteria = 'high_priority')
 
 cleanup()
