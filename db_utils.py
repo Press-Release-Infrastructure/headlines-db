@@ -82,14 +82,19 @@ def add_response(worker_id, headline_id, response_class, company_1, company_2):
     ))
     session.commit()
 
-def add_headline(headline, article_id, priority_score):
+def add_headline(headline, article_id, num_times_displayed, priority_score):
     session.add(HeadlineInfo(
         headline = headline, 
         article_id = article_id,
-        num_times_displayed = 1,
+        num_times_displayed = num_times_displayed,
         priority_score = priority_score
     ))
     session.commit()
+
+def populate_headlines(headlines_df):
+    for i, headline_info in headlines_df.iterrows():
+        headline, article_id, priority_score = headline_info['headline'], headline_info['article_id'], headline_info['priority_score']
+        add_headline(headline, article_id, 0, priority_score)
 
 def add_assessment_headline(consensus_class, headline_id, company_1, company_2, confidence_score):
     session.add(AssessmentHeadlines(
@@ -154,7 +159,7 @@ def update_headline(curr_headline, curr_article_id, curr_priority_score):
     headline_row = session.execute(headline_query).first()
     if headline_row == None:
         # add headline to headlines table
-        add_headline(curr_headline, curr_article_id, curr_priority_score)
+        add_headline(curr_headline, curr_article_id, 1, curr_priority_score)
     else:
         num_times_displayed = headline_row.headline_info_num_times_displayed
         headline_query.update({'num_times_displayed': num_times_displayed + 1})
@@ -284,7 +289,7 @@ def clear_table(table):
 
 def view_table(table):
     tablename = table.__tablename__
-    rows = session.execute(session.query(table))#.all()
+    rows = session.execute(session.query(table))
     colnames = list(rows.keys())
     print(tablename)
     print('\t'.join([str(i[len(tablename) + 1:]) for i in colnames]))
@@ -298,15 +303,3 @@ def cleanup():
     clear_table(assessment_headlines)
     clear_table(workers)
     clear_table(responses)
-
-initial_survey_responses = pd.read_csv('./test_data/initial_survey.csv').drop(columns = ['Unnamed: 0'])
-add_responses(initial_survey_responses)
-
-view_table(HeadlineInfo)
-view_table(Workers)
-view_table(Responses)
-view_table(AssessmentHeadlines)
-
-collect_headlines(2, 2, './outputs/headlines.csv', './outputs/assessment.csv', criteria = 'high_priority')
-
-cleanup()
