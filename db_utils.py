@@ -7,6 +7,9 @@ from headlines import Responses, HeadlineInfo, Workers, AssessmentHeadlines
 from sqlalchemy.sql.expression import func
 import traceback
 import math
+import numpy as np
+
+np.random.seed(0)
 
 assessment_headline_consensus = 0.8
 assessment_headline_threshold_num = 2
@@ -27,12 +30,36 @@ session = Session()
 
 def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_out, criteria = 'high_priority'):
     # select n headlines with the highest priority values from the headlines table
-    headline_query = session.query(HeadlineInfo).order_by(HeadlineInfo.priority_score.desc()) 
-    headline_result = session.execute(headline_query)
+    if criteria == 'high_priority':
+        pass # changed because priority_score column no longer exists
+        # headline_query = session.query(HeadlineInfo).order_by(HeadlineInfo.priority_score.desc()) 
+        # headline_result = session.execute(headline_query)
+    elif criteria == 'mixed':
+        # select a split of 50% likely acquisition & 50% random headlines
+        num_likely_acq = num_headlines // 2
+        num_random = num_headlines - num_likely_acq
+
+        # likely acquisition
+        likely_acq_query = session.query(HeadlineInfo).filter(HeadlineInfo.likely_acquisition == 1)
+        likely_acq_result = list(session.execute(likely_acq_query))
+
+        # random headlines
+        random_query = session.query(HeadlineInfo).order_by(func.random())
+        random_result = list(session.execute(random_query))
+
+        likely_acq_result = list(np.array(likely_acq_result)[np.random.choice(np.arange(0, len(likely_acq_result)), num_likely_acq)])
+        likely_acq_headline_ids = {i[0]: 0 for i in likely_acq_result}
+        random_result = [i for i in random_result if i[0] not in likely_acq_headline_ids]
+
+        headline_result = likely_acq_result + random_result
+        np.random.shuffle(headline_result)
+
     count = 0
     headlines_used = []
     for h in headline_result:
-        headlines_used.append(h.headline_info_headline)
+        # headlines_used.append(h.headline_info_headline)
+        headline_id, headline, article_id, num_times_displayed, likely_acquisition = h
+        headlines_used.append(headline)
         count += 1
         if count >= num_headlines:
             break

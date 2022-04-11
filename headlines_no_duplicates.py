@@ -35,4 +35,6 @@ view_table(Workers)
 view_table(Responses)
 view_table(AssessmentHeadlines)
 
-collect_headlines(2, 2, './survey_inputs/headlines.csv', './survey_inputs/assessment.csv', criteria = 'high_priority')
+collect_headlines(500, 0, './survey_inputs/headlines.csv', './survey_inputs/assessment.csv', criteria = 'mixed')
+
+# cleanup()
