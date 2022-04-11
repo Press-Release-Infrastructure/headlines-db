@@ -15,7 +15,7 @@ class HeadlineInfo(Base):
     headline = Column('headline', String)
     article_id = Column('article_id', String)
     num_times_displayed = Column('num_times_displayed', Integer)
-    priority_score = Column('priority_score', Float)
+    likely_acquisition = Column('likely_acquisition', Integer)
 
 class AssessmentHeadlines(Base):
     __tablename__ = 'assessment_headlines'

@@ -82,19 +82,19 @@ def add_response(worker_id, headline_id, response_class, company_1, company_2):
     ))
     session.commit()
 
-def add_headline(headline, article_id, num_times_displayed, priority_score):
+def add_headline(headline, article_id, num_times_displayed, likely_acquisition):
     session.add(HeadlineInfo(
         headline = headline, 
         article_id = article_id,
         num_times_displayed = num_times_displayed,
-        priority_score = priority_score
+        likely_acquisition = likely_acquisition
     ))
     session.commit()
 
 def populate_headlines(headlines_df):
     for i, headline_info in headlines_df.iterrows():
-        headline, article_id, priority_score = headline_info['headline'], headline_info['article_id'], headline_info['priority_score']
-        add_headline(headline, article_id, 0, priority_score)
+        headline, article_id, likely_acquisition = headline_info['headline'], headline_info['article_id'], headline_info['likely_acquisition']
+        add_headline(headline, article_id, 0, likely_acquisition)
 
 def add_assessment_headline(consensus_class, headline_id, company_1, company_2, confidence_score):
     session.add(AssessmentHeadlines(
