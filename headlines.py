@@ -16,6 +16,7 @@ class HeadlineInfo(Base):
     article_id = Column('article_id', String)
     num_times_displayed = Column('num_times_displayed', Integer)
     likely_acquisition = Column('likely_acquisition', Integer)
+    lexis_nexis = Column('lexis_nexis', Integer)
 
 class AssessmentHeadlines(Base):
     __tablename__ = 'assessment_headlines'

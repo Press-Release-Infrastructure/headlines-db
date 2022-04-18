@@ -36,8 +36,8 @@ def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_o
         # headline_result = session.execute(headline_query)
     elif criteria == 'mixed':
         # select a split of 50% likely acquisition & 50% random headlines
-        num_likely_acq = num_headlines // 2
-        num_random = num_headlines - num_likely_acq
+        num_likely_acq = num_headlines #// 2
+        # num_random = num_headlines - num_likely_acq
 
         # likely acquisition
         likely_acq_query = session.query(HeadlineInfo).filter(HeadlineInfo.likely_acquisition == 1)
@@ -53,13 +53,31 @@ def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_o
 
         headline_result = likely_acq_result + random_result
         np.random.shuffle(headline_result)
+    elif criteria == 'include_crunchbase':
+        # select a split of 80% likely acquisition & 20% crunchbase acquisition
+        num_likely_acq = round(num_headlines * 0.8)
+        num_cb_acq = num_headlines - num_likely_acq
+
+        # likely acquisition
+        likely_acq_query = session.query(HeadlineInfo).filter(HeadlineInfo.lexis_nexis == 1).filter(HeadlineInfo.likely_acquisition == 1)
+        likely_acq_result = list(session.execute(likely_acq_query))
+        likely_acq_result = list(np.array(likely_acq_result)[np.random.choice(np.arange(0, len(likely_acq_result)), num_likely_acq)])
+
+        # crunchbase headlines
+        crunchbase_query = session.query(HeadlineInfo).filter(HeadlineInfo.lexis_nexis == 0).order_by(func.random())
+        crunchbase_result = list(session.execute(crunchbase_query))[:num_cb_acq]
+
+        headline_result = likely_acq_result + crunchbase_result
+        np.random.shuffle(headline_result)
 
     count = 0
     headlines_used = []
+    lexis_nexis_status = []
     for h in headline_result:
         # headlines_used.append(h.headline_info_headline)
-        headline_id, headline, article_id, num_times_displayed, likely_acquisition = h
+        headline_id, headline, article_id, num_times_displayed, likely_acquisition, lexis_nexis = h
         headlines_used.append(headline)
+        lexis_nexis_status.append(lexis_nexis)
         count += 1
         if count >= num_headlines:
             break
@@ -86,7 +104,8 @@ def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_o
             break 
 
     headlines_df = pd.DataFrame({
-        'Headline': headlines_used
+        'Headline': headlines_used,
+        'Lexis Nexis': lexis_nexis_status,
     })
 
     assessment_headlines_df = pd.DataFrame({
@@ -109,19 +128,20 @@ def add_response(worker_id, headline_id, response_class, company_1, company_2):
     ))
     session.commit()
 
-def add_headline(headline, article_id, num_times_displayed, likely_acquisition):
+def add_headline(headline, article_id, num_times_displayed, likely_acquisition, lexis_nexis):
     session.add(HeadlineInfo(
         headline = headline, 
         article_id = article_id,
         num_times_displayed = num_times_displayed,
-        likely_acquisition = likely_acquisition
+        likely_acquisition = likely_acquisition,
+        lexis_nexis = lexis_nexis
     ))
     session.commit()
 
 def populate_headlines(headlines_df):
     for i, headline_info in headlines_df.iterrows():
-        headline, article_id, likely_acquisition = headline_info['headline'], headline_info['article_id'], headline_info['likely_acquisition']
-        add_headline(headline, article_id, 0, likely_acquisition)
+        headline, article_id, likely_acquisition, lexis_nexis = headline_info['headline'], headline_info['article_id'], headline_info['likely_acquisition'], headline_info['lexis_nexis']
+        add_headline(headline, article_id, 0, likely_acquisition, lexis_nexis)
 
 def add_assessment_headline(consensus_class, headline_id, company_1, company_2, confidence_score):
     session.add(AssessmentHeadlines(
@@ -180,13 +200,13 @@ def determine_consensus(response_results):
         return True, [most_freq_class, most_freq_company_1, most_freq_company_2, num_agreed / n]
     return False, None
 
-def update_headline(curr_headline, curr_article_id, curr_priority_score):
+def update_headline(curr_headline, curr_article_id, curr_priority_score, lexis_nexis = 1):
     # find the headline id corresponding to the current headline
     headline_query = session.query(HeadlineInfo).filter(HeadlineInfo.headline == curr_headline)
     headline_row = session.execute(headline_query).first()
     if headline_row == None:
         # add headline to headlines table
-        add_headline(curr_headline, curr_article_id, 1, curr_priority_score)
+        add_headline(curr_headline, curr_article_id, 1, curr_priority_score, lexis_nexis)
     else:
         num_times_displayed = headline_row.headline_info_num_times_displayed
         headline_query.update({'num_times_displayed': num_times_displayed + 1})
