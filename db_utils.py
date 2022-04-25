@@ -28,6 +28,26 @@ responses = meta.tables['responses']
 Session = sessionmaker(bind = engine)
 session = Session()
 
+temp_acq_keywords = [
+    "acquire",
+    "acquired",
+    "acquisition",
+    "merger",
+    "merge",
+    "merged",
+    "purchase",
+    "asset",
+    "buyout",
+    "fusion",
+    "consolidation",
+]
+
+def check_acq_keywords(title, lst):
+    for i in lst:
+        if i in title:
+            return True 
+    return False
+
 def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_out, criteria = 'high_priority'):
     # select n headlines with the highest priority values from the headlines table
     if criteria == 'high_priority':
@@ -55,17 +75,17 @@ def collect_headlines(num_headlines, num_assessment, headlines_out, assessment_o
         np.random.shuffle(headline_result)
     elif criteria == 'include_crunchbase':
         # select a split of 80% likely acquisition & 20% crunchbase acquisition
-        num_likely_acq = round(num_headlines * 0.8)
+        num_likely_acq = round(num_headlines * 0.5)
         num_cb_acq = num_headlines - num_likely_acq
 
         # likely acquisition
         likely_acq_query = session.query(HeadlineInfo).filter(HeadlineInfo.lexis_nexis == 1).filter(HeadlineInfo.likely_acquisition == 1)
         likely_acq_result = list(session.execute(likely_acq_query))
-        likely_acq_result = list(np.array(likely_acq_result)[np.random.choice(np.arange(0, len(likely_acq_result)), num_likely_acq)])
+        likely_acq_result = list(np.array(likely_acq_result)[np.random.choice(np.arange(0, len(likely_acq_result)), num_likely_acq, replace = False)])
 
         # crunchbase headlines
         crunchbase_query = session.query(HeadlineInfo).filter(HeadlineInfo.lexis_nexis == 0).order_by(func.random())
-        crunchbase_result = list(session.execute(crunchbase_query))[:num_cb_acq]
+        crunchbase_result = [i for i in list(session.execute(crunchbase_query)) if check_acq_keywords(i.headline_info_headline.lower(), temp_acq_keywords)][:num_cb_acq]
 
         headline_result = likely_acq_result + crunchbase_result
         np.random.shuffle(headline_result)

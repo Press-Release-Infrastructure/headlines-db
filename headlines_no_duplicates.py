@@ -3,7 +3,7 @@ from db_utils import HeadlineInfo, Workers, Responses, AssessmentHeadlines
 import pandas as pd 
 import hashlib
 
-acq_thresh = 2.5
+acq_thresh = 3
 
 headline = []
 article_id = []
